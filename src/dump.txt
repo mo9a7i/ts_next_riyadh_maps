@@ -1,0 +1,1020 @@
+// app/globals.css
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+
+.custom-div-icon svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+
+
+// app/layout.tsx
+import './globals.css'
+import { Inter } from 'next/font/google'
+
+const inter = Inter({ subsets: ['latin'] })
+
+export const metadata = {
+  title: 'Riyadh Map',
+  description: 'Interactive map of Riyadh with metro lines, bus stops, and neighborhoods',
+}
+
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode
+}) {
+  return (
+    <html lang="en">
+      <body className={inter.className}>{children}</body>
+    </html>
+  )
+}
+
+
+
+// app/page.tsx
+import dynamic from 'next/dynamic'
+
+const RiyadhMap = dynamic(() => import('@/components/RiyadhMap'), { ssr: false })
+
+export default function Home() {
+  return (
+    <main className="w-screen h-screen relative">
+      <RiyadhMap />
+    </main>
+  )
+}
+
+
+
+// components/ControlPanel.tsx
+import { Checkbox } from "@/components/ui/checkbox"
+import { Label } from "@/components/ui/label"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+
+interface ControlPanelProps {
+  layers: {
+    metroLines: boolean;
+    busStops: boolean;
+    neighborhoods: boolean;
+  };
+  toggleLayer: (layerName: string) => void;
+  mapStyle: string;
+  changeMapStyle: (style: string) => void;
+}
+
+const ControlPanel: React.FC<ControlPanelProps> = ({ layers, toggleLayer, mapStyle, changeMapStyle }) => {
+  return (
+    <div className="absolute top-4 left-4 bg-white p-4 rounded-lg shadow-md z-[1000]">
+      <h2 className="text-lg font-semibold mb-2">Layers</h2>
+      <div className="space-y-2">
+        <div className="flex items-center space-x-2">
+          <Checkbox
+            id="metro-lines"
+            checked={layers.metroLines}
+            onCheckedChange={() => toggleLayer("'metroLines'")}
+          />
+          <Label htmlFor="metro-lines">Metro Lines</Label>
+        </div>
+        <div className="flex items-center space-x-2">
+          <Checkbox
+            id="bus-stops"
+            checked={layers.busStops}
+            onCheckedChange={() => toggleLayer("'busStops'")}
+          />
+          <Label htmlFor="bus-stops">Bus Stops</Label>
+        </div>
+        <div className="flex items-center space-x-2">
+          <Checkbox
+            id="neighborhoods"
+            checked={layers.neighborhoods}
+            onCheckedChange={() => toggleLayer("'neighborhoods'")}
+          />
+          <Label htmlFor="neighborhoods">Neighborhoods</Label>
+        </div>
+      </div>
+      <div className="mt-4">
+        <Label htmlFor="map-style" className="block mb-2">Map Style</Label>
+        <Select value={mapStyle} onValueChange={changeMapStyle}>
+          <SelectTrigger className="w-full">
+            <SelectValue placeholder="Select a map style" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="default">Default</SelectItem>
+            <SelectItem value="satellite">Satellite</SelectItem>
+            <SelectItem value="terrain">Terrain</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+    </div>
+  )
+}
+
+export default ControlPanel
+
+
+
+// components/KMLLayer.tsx
+"'use client'"
+
+import { useEffect } from "react"
+import { useMap } from "react-leaflet"
+import L from "leaflet"
+
+import "'leaflet-kml'"
+
+interface CustomStyle {
+  getPathOptions?: (properties: any) => L.PathOptions;
+  icon?: string;
+}
+
+interface KMLLayerProps {
+  url: string;
+  name: string;
+  customStyle?: CustomStyle;
+}
+
+const KMLLayer: React.FC<KMLLayerProps> = ({ url, name, customStyle }) => {
+  const map = useMap()
+
+  useEffect(() => {
+    if (!map) return
+
+    const fetchKML = async () => {
+      try {
+        const response = await fetch(url)
+        const kmlText = await response.text()
+        const parser = new DOMParser()
+        const kml = parser.parseFromString(kmlText, "'text/xml'")
+        const track = new L.KML(kml)
+
+        // Apply custom styles
+        if (customStyle) {
+          track.eachLayer((layer) => {
+            if (layer instanceof L.Marker && customStyle.icon) {
+              const icon = L.divIcon({
+                html: customStyle.icon,
+                className: "'custom-div-icon'",
+                iconSize: [30, 30],
+                iconAnchor: [15, 30],
+              })
+              layer.setIcon(icon)
+              // Remove the default marker icon
+              layer.options.icon.options.iconUrl = null
+              layer.options.icon.options.iconRetinaUrl = null
+              layer.options.icon.options.shadowUrl = null
+            } else if (layer instanceof L.Path && customStyle.getPathOptions) {
+              const pathOptions = customStyle.getPathOptions(layer.feature.properties)
+              layer.setStyle(pathOptions)
+            }
+          })
+        }
+
+        map.addLayer(track)
+        map.fitBounds(track.getBounds())
+      } catch (error) {
+        console.error(`Error loading KML file for ${name}:`, error)
+      }
+    }
+
+    fetchKML()
+
+    return () => {
+      map.eachLayer((layer) => {
+        if (layer instanceof L.KML) {
+          map.removeLayer(layer)
+        }
+      })
+    }
+  }, [map, url, name, customStyle])
+
+  return null
+}
+
+export default KMLLayer
+
+
+
+// components/MapStyles.ts
+const MapStyles = {
+    default: [],
+    silver: [
+      {
+        elementType: "geometry",
+        stylers: [{ color: "#f5f5f5" }]
+      },
+      {
+        elementType: "labels.icon",
+        stylers: [{ visibility: "off" }]
+      },
+      {
+        elementType: "labels.text.fill",
+        stylers: [{ color: "#616161" }]
+      },
+      {
+        elementType: "labels.text.stroke",
+        stylers: [{ color: "#f5f5f5" }]
+      },
+      {
+        featureType: "administrative.land_parcel",
+        elementType: "labels.text.fill",
+        stylers: [{ color: "#bdbdbd" }]
+      },
+      {
+        featureType: "poi",
+        elementType: "geometry",
+        stylers: [{ color: "#eeeeee" }]
+      },
+      {
+        featureType: "poi",
+        elementType: "labels.text.fill",
+        stylers: [{ color: "#757575" }]
+      },
+      {
+        featureType: "poi.park",
+        elementType: "geometry",
+        stylers: [{ color: "#e5e5e5" }]
+      },
+      {
+        featureType: "poi.park",
+        elementType: "labels.text.fill",
+        stylers: [{ color: "#9e9e9e" }]
+      },
+      {
+        featureType: "road",
+        elementType: "geometry",
+        stylers: [{ color: "#ffffff" }]
+      },
+      {
+        featureType: "road.arterial",
+        elementType: "labels.text.fill",
+        stylers: [{ color: "#757575" }]
+      },
+      {
+        featureType: "road.highway",
+        elementType: "geometry",
+        stylers: [{ color: "#dadada" }]
+      },
+      {
+        featureType: "road.highway",
+        elementType: "labels.text.fill",
+        stylers: [{ color: "#616161" }]
+      },
+      {
+        featureType: "road.local",
+        elementType: "labels.text.fill",
+        stylers: [{ color: "#9e9e9e" }]
+      },
+      {
+        featureType: "transit.line",
+        elementType: "geometry",
+        stylers: [{ color: "#e5e5e5" }]
+      },
+      {
+        featureType: "transit.station",
+        elementType: "geometry",
+        stylers: [{ color: "#eeeeee" }]
+      },
+      {
+        featureType: "water",
+        elementType: "geometry",
+        stylers: [{ color: "#c9c9c9" }]
+      },
+      {
+        featureType: "water",
+        elementType: "labels.text.fill",
+        stylers: [{ color: "#9e9e9e" }]
+      }
+    ],
+    night: [
+      { elementType: "geometry", stylers: [{ color: "#242f3e" }] },
+      { elementType: "labels.text.stroke", stylers: [{ color: "#242f3e" }] },
+      { elementType: "labels.text.fill", stylers: [{ color: "#746855" }] },
+      {
+        featureType: "administrative.locality",
+        elementType: "labels.text.fill",
+        stylers: [{ color: "#d59563" }],
+      },
+      {
+        featureType: "poi",
+        elementType: "labels.text.fill",
+        stylers: [{ color: "#d59563" }],
+      },
+      {
+        featureType: "poi.park",
+        elementType: "geometry",
+        stylers: [{ color: "#263c3f" }],
+      },
+      {
+        featureType: "poi.park",
+        elementType: "labels.text.fill",
+        stylers: [{ color: "#6b9a76" }],
+      },
+      {
+        featureType: "road",
+        elementType: "geometry",
+        stylers: [{ color: "#38414e" }],
+      },
+      {
+        featureType: "road",
+        elementType: "geometry.stroke",
+        stylers: [{ color: "#212a37" }],
+      },
+      {
+        featureType: "road",
+        elementType: "labels.text.fill",
+        stylers: [{ color: "#9ca5b3" }],
+      },
+      {
+        featureType: "road.highway",
+        elementType: "geometry",
+        stylers: [{ color: "#746855" }],
+      },
+      {
+        featureType: "road.highway",
+        elementType: "geometry.stroke",
+        stylers: [{ color: "#1f2835" }],
+      },
+      {
+        featureType: "road.highway",
+        elementType: "labels.text.fill",
+        stylers: [{ color: "#f3d19c" }],
+      },
+      {
+        featureType: "transit",
+        elementType: "geometry",
+        stylers: [{ color: "#2f3948" }],
+      },
+      {
+        featureType: "transit.station",
+        elementType: "labels.text.fill",
+        stylers: [{ color: "#d59563" }],
+      },
+      {
+        featureType: "water",
+        elementType: "geometry",
+        stylers: [{ color: "#17263c" }],
+      },
+      {
+        featureType: "water",
+        elementType: "labels.text.fill",
+        stylers: [{ color: "#515c6d" }],
+      },
+      {
+        featureType: "water",
+        elementType: "labels.text.stroke",
+        stylers: [{ color: "#17263c" }],
+      },
+    ],
+    retro: [
+      { elementType: "geometry", stylers: [{ color: "#ebe3cd" }] },
+      { elementType: "labels.text.fill", stylers: [{ color: "#523735" }] },
+      { elementType: "labels.text.stroke", stylers: [{ color: "#f5f1e6" }] },
+      {
+        featureType: "administrative",
+        elementType: "geometry.stroke",
+        stylers: [{ color: "#c9b2a6" }],
+      },
+      {
+        featureType: "administrative.land_parcel",
+        elementType: "geometry.stroke",
+        stylers: [{ color: "#dcd2be" }],
+      },
+      {
+        featureType: "administrative.land_parcel",
+        elementType: "labels.text.fill",
+        stylers: [{ color: "#ae9e90" }],
+      },
+      {
+        featureType: "landscape.natural",
+        elementType: "geometry",
+        stylers: [{ color: "#dfd2ae" }],
+      },
+      {
+        featureType: "poi",
+        elementType: "geometry",
+        stylers: [{ color: "#dfd2ae" }],
+      },
+      {
+        featureType: "poi",
+        elementType: "labels.text.fill",
+        stylers: [{ color: "#93817c" }],
+      },
+      {
+        featureType: "poi.park",
+        elementType: "geometry.fill",
+        stylers: [{ color: "#a5b076" }],
+      },
+      {
+        featureType: "poi.park",
+        elementType: "labels.text.fill",
+        stylers: [{ color: "#447530" }],
+      },
+      {
+        featureType: "road",
+        elementType: "geometry",
+        stylers: [{ color: "#f5f1e6" }],
+      },
+      {
+        featureType: "road.arterial",
+        elementType: "geometry",
+        stylers: [{ color: "#fdfcf8" }],
+      },
+      {
+        featureType: "road.highway",
+        elementType: "geometry",
+        stylers: [{ color: "#f8c967" }],
+      },
+      {
+        featureType: "road.highway",
+        elementType: "geometry.stroke",
+        stylers: [{ color: "#e9bc62" }],
+      },
+      {
+        featureType: "road.highway.controlled_access",
+        elementType: "geometry",
+        stylers: [{ color: "#e98d58" }],
+      },
+      {
+        featureType: "road.highway.controlled_access",
+        elementType: "geometry.stroke",
+        stylers: [{ color: "#db8555" }],
+      },
+      {
+        featureType: "road.local",
+        elementType: "labels.text.fill",
+        stylers: [{ color: "#806b63" }],
+      },
+      {
+        featureType: "transit.line",
+        elementType: "geometry",
+        stylers: [{ color: "#dfd2ae" }],
+      },
+      {
+        featureType: "transit.line",
+        elementType: "labels.text.fill",
+        stylers: [{ color: "#8f7d77" }],
+      },
+      {
+        featureType: "transit.line",
+        elementType: "labels.text.stroke",
+        stylers: [{ color: "#ebe3cd" }],
+      },
+      {
+        featureType: "transit.station",
+        elementType: "geometry",
+        stylers: [{ color: "#dfd2ae" }],
+      },
+      {
+        featureType: "water",
+        elementType: "geometry.fill",
+        stylers: [{ color: "#b9d3c2" }],
+      },
+      {
+        featureType: "water",
+        elementType: "labels.text.fill",
+        stylers: [{ color: "#92998d" }],
+      },
+    ],
+  };
+  
+  export default MapStyles;
+  
+  
+
+// components/RiyadhMap.tsx
+'use client'
+
+import { useState, useEffect } from 'react'
+import { MapContainer, TileLayer, LayersControl, useMap } from 'react-leaflet'
+import L from 'leaflet'
+import 'leaflet/dist/leaflet.css'
+import 'leaflet-kml'
+import { Checkbox } from "@/components/ui/checkbox"
+import { Label } from "@/components/ui/label"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+
+const mapCenter = [24.7136, 46.6753] // Coordinates for Riyadh
+const zoom = 10
+
+const metroLineColors = {
+  'Blue Line': '#0000FF',
+  'Green Line': '#008000',
+  'Orange Line': '#FFA500',
+  'Yellow Line': '#FFFF00',
+  'Red Line': '#FF0000',
+  'Purple Line': '#800080',
+}
+
+interface CustomStyle {
+  getPathOptions?: (properties: any) => L.PathOptions;
+  icon?: string;
+}
+
+interface KMLLayerProps {
+  url: string;
+  name: string;
+  customStyle?: CustomStyle;
+}
+
+const KMLLayer: React.FC<KMLLayerProps> = ({ url, name, customStyle }) => {
+  const map = useMap()
+
+  useEffect(() => {
+    if (!map) return
+
+    const fetchKML = async () => {
+      try {
+        const response = await fetch(url)
+        const kmlText = await response.text()
+        const parser = new DOMParser()
+        const kml = parser.parseFromString(kmlText, 'text/xml')
+        const track = new L.KML(kml)
+
+        if (customStyle) {
+          track.eachLayer((layer) => {
+            if (layer instanceof L.Marker && customStyle.icon) {
+              const icon = L.divIcon({
+                html: customStyle.icon,
+                className: 'custom-div-icon',
+                iconSize: [30, 30],
+                iconAnchor: [15, 30],
+              })
+              layer.setIcon(icon)
+              if (layer.options.icon && 'options' in layer.options.icon) {
+                layer.options.icon.options.iconUrl = undefined
+                layer.options.icon.options.iconRetinaUrl = undefined
+                layer.options.icon.options.shadowUrl = undefined
+              }
+            } else if (layer instanceof L.Path && customStyle.getPathOptions) {
+              const pathOptions = customStyle.getPathOptions(layer.feature.properties)
+              layer.setStyle(pathOptions)
+            }
+          })
+        }
+
+        map.addLayer(track)
+        map.fitBounds(track.getBounds())
+      } catch (error) {
+        console.error(`Error loading KML file for ${name}:`, error)
+      }
+    }
+
+    fetchKML()
+
+    return () => {
+      map.eachLayer((layer) => {
+        if (layer instanceof L.KML) {
+          map.removeLayer(layer)
+        }
+      })
+    }
+  }, [map, url, name, customStyle])
+
+  return null
+}
+
+interface ControlPanelProps {
+  layers: {
+    metroLines: boolean;
+    busStops: boolean;
+    neighborhoods: boolean;
+  };
+  toggleLayer: (layerName: string) => void;
+  mapStyle: string;
+  changeMapStyle: (style: string) => void;
+}
+
+const ControlPanel: React.FC<ControlPanelProps> = ({ layers, toggleLayer, mapStyle, changeMapStyle }) => {
+  return (
+    <div className="absolute top-4 left-4 bg-white p-4 rounded-lg shadow-md z-[1000]">
+      <h2 className="text-lg font-semibold mb-2">Layers</h2>
+      <div className="space-y-2">
+        <div className="flex items-center space-x-2">
+          <Checkbox
+            id="metro-lines"
+            checked={layers.metroLines}
+            onCheckedChange={() => toggleLayer('metroLines')}
+          />
+          <Label htmlFor="metro-lines">Metro Lines</Label>
+        </div>
+        <div className="flex items-center space-x-2">
+          <Checkbox
+            id="bus-stops"
+            checked={layers.busStops}
+            onCheckedChange={() => toggleLayer('busStops')}
+          />
+          <Label htmlFor="bus-stops">Bus Stops</Label>
+        </div>
+        <div className="flex items-center space-x-2">
+          <Checkbox
+            id="neighborhoods"
+            checked={layers.neighborhoods}
+            onCheckedChange={() => toggleLayer('neighborhoods')}
+          />
+          <Label htmlFor="neighborhoods">Neighborhoods</Label>
+        </div>
+      </div>
+      <div className="mt-4">
+        <Label htmlFor="map-style" className="block mb-2">Map Style</Label>
+        <Select value={mapStyle} onValueChange={changeMapStyle}>
+          <SelectTrigger className="w-full">
+            <SelectValue placeholder="Select a map style" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="default">Default</SelectItem>
+            <SelectItem value="satellite">Satellite</SelectItem>
+            <SelectItem value="terrain">Terrain</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+    </div>
+  )
+}
+
+const RiyadhMap = () => {
+  const [mapStyle, setMapStyle] = useState('default')
+  const [layers, setLayers] = useState({
+    metroLines: true,
+    busStops: true,
+    neighborhoods: true,
+  })
+
+  const toggleLayer = (layerName: string) => {
+    setLayers((prevLayers) => ({
+      ...prevLayers,
+      [layerName]: !prevLayers[layerName],
+    }))
+  }
+
+  const changeMapStyle = (style: string) => {
+    setMapStyle(style)
+  }
+
+  const getMapStyle = () => {
+    switch (mapStyle) {
+      case 'satellite':
+        return 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'
+      case 'terrain':
+        return 'https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png'
+      default:
+        return 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png'
+    }
+  }
+
+  return (
+    <>
+      <MapContainer
+        center={mapCenter}
+        zoom={zoom}
+        className="h-full w-full"
+      >
+        <TileLayer
+          url={getMapStyle()}
+          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+        />
+        <LayersControl position="topright">
+          {layers.metroLines && (
+            <KMLLayer
+              url="https://raw.githubusercontent.com/mo9a7i/py_arcgis_export_to_KML/refs/heads/main/output/metro_lines_and_stations_2.kml"
+              name="Metro Lines and Stations"
+              customStyle={{
+                getPathOptions: (properties) => {
+                  const lineName = properties.Name || 'Unknown Line'
+                  return {
+                    color: metroLineColors[lineName] || '#000000',
+                    weight: 4,
+                    opacity: 0.8
+                  }
+                },
+                icon: '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="currentColor" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-gray-700"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3"/></svg>'
+              }}
+            />
+          )}
+          {layers.busStops && (
+            <KMLLayer
+              url="https://raw.githubusercontent.com/mo9a7i/py_arcgis_export_to_KML/refs/heads/main/output/stations.kml"
+              name="Bus Stops"
+              customStyle={{
+                icon: '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="#4A90E2" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 6v6"/><path d="M15 6v6"/><path d="M2 12h19.6"/><path d="M18 18h3s.5-1.7.8-2.8c.1-.4.2-.8.2-1.2 0-.4-.1-.8-.2-1.2l-1.4-5C20.1 6.8 19.1 6 18 6H4a2 2 0 0 0-2 2v10h3"/><circle cx="7" cy="18" r="2"/><circle cx="17" cy="18" r="2"/></svg>'
+              }}
+            />
+          )}
+          {layers.neighborhoods && (
+            <KMLLayer
+              url="https://raw.githubusercontent.com/mo9a7i/py_arcgis_export_to_KML/refs/heads/main/output/city_3_districts.kml"
+              name="Neighborhoods"
+            />
+          )}
+        </LayersControl>
+      </MapContainer>
+      <ControlPanel
+        layers={layers}
+        toggleLayer={toggleLayer}
+        mapStyle={mapStyle}
+        changeMapStyle={changeMapStyle}
+      />
+    </>
+  )
+}
+
+export default RiyadhMap
+
+
+
+// components/ui/button.tsx
+import * as React from "react"
+import { Slot } from "@radix-ui/react-slot"
+import { cva, type VariantProps } from "class-variance-authority"
+
+import { cn } from "@/lib/utils"
+
+const buttonVariants = cva(
+  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-neutral-950 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 dark:focus-visible:ring-neutral-300",
+  {
+    variants: {
+      variant: {
+        default:
+          "bg-neutral-900 text-neutral-50 shadow hover:bg-neutral-900/90 dark:bg-neutral-50 dark:text-neutral-900 dark:hover:bg-neutral-50/90",
+        destructive:
+          "bg-red-500 text-neutral-50 shadow-sm hover:bg-red-500/90 dark:bg-red-900 dark:text-neutral-50 dark:hover:bg-red-900/90",
+        outline:
+          "border border-neutral-200 bg-white shadow-sm hover:bg-neutral-100 hover:text-neutral-900 dark:border-neutral-800 dark:bg-neutral-950 dark:hover:bg-neutral-800 dark:hover:text-neutral-50",
+        secondary:
+          "bg-neutral-100 text-neutral-900 shadow-sm hover:bg-neutral-100/80 dark:bg-neutral-800 dark:text-neutral-50 dark:hover:bg-neutral-800/80",
+        ghost: "hover:bg-neutral-100 hover:text-neutral-900 dark:hover:bg-neutral-800 dark:hover:text-neutral-50",
+        link: "text-neutral-900 underline-offset-4 hover:underline dark:text-neutral-50",
+      },
+      size: {
+        default: "h-9 px-4 py-2",
+        sm: "h-8 rounded-md px-3 text-xs",
+        lg: "h-10 rounded-md px-8",
+        icon: "h-9 w-9",
+      },
+    },
+    defaultVariants: {
+      variant: "default",
+      size: "default",
+    },
+  }
+)
+
+export interface ButtonProps
+  extends React.ButtonHTMLAttributes<HTMLButtonElement>,
+    VariantProps<typeof buttonVariants> {
+  asChild?: boolean
+}
+
+const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
+  ({ className, variant, size, asChild = false, ...props }, ref) => {
+    const Comp = asChild ? Slot : "button"
+    return (
+      <Comp
+        className={cn(buttonVariants({ variant, size, className }))}
+        ref={ref}
+        {...props}
+      />
+    )
+  }
+)
+Button.displayName = "Button"
+
+export { Button, buttonVariants }
+
+
+// components/ui/checkbox.tsx
+"use client"
+
+import * as React from "react"
+import * as CheckboxPrimitive from "@radix-ui/react-checkbox"
+import { Check } from "lucide-react"
+
+import { cn } from "@/lib/utils"
+
+const Checkbox = React.forwardRef<
+  React.ElementRef<typeof CheckboxPrimitive.Root>,
+  React.ComponentPropsWithoutRef<typeof CheckboxPrimitive.Root>
+>(({ className, ...props }, ref) => (
+  <CheckboxPrimitive.Root
+    ref={ref}
+    className={cn(
+      "peer h-4 w-4 shrink-0 rounded-sm border border-neutral-200 border-neutral-900 shadow focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-neutral-950 disabled:cursor-not-allowed disabled:opacity-50 data-[state=checked]:bg-neutral-900 data-[state=checked]:text-neutral-50 dark:border-neutral-800 dark:border-neutral-50 dark:focus-visible:ring-neutral-300 dark:data-[state=checked]:bg-neutral-50 dark:data-[state=checked]:text-neutral-900",
+      className
+    )}
+    {...props}
+  >
+    <CheckboxPrimitive.Indicator
+      className={cn("flex items-center justify-center text-current")}
+    >
+      <Check className="h-4 w-4" />
+    </CheckboxPrimitive.Indicator>
+  </CheckboxPrimitive.Root>
+))
+Checkbox.displayName = CheckboxPrimitive.Root.displayName
+
+export { Checkbox }
+
+
+// components/ui/label.tsx
+"use client"
+
+import * as React from "react"
+import * as LabelPrimitive from "@radix-ui/react-label"
+import { cva, type VariantProps } from "class-variance-authority"
+
+import { cn } from "@/lib/utils"
+
+const labelVariants = cva(
+  "text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+)
+
+const Label = React.forwardRef<
+  React.ElementRef<typeof LabelPrimitive.Root>,
+  React.ComponentPropsWithoutRef<typeof LabelPrimitive.Root> &
+    VariantProps<typeof labelVariants>
+>(({ className, ...props }, ref) => (
+  <LabelPrimitive.Root
+    ref={ref}
+    className={cn(labelVariants(), className)}
+    {...props}
+  />
+))
+Label.displayName = LabelPrimitive.Root.displayName
+
+export { Label }
+
+
+// components/ui/select.tsx
+"use client"
+
+import * as React from "react"
+import * as SelectPrimitive from "@radix-ui/react-select"
+import { Check, ChevronDown, ChevronUp } from "lucide-react"
+
+import { cn } from "@/lib/utils"
+
+const Select = SelectPrimitive.Root
+
+const SelectGroup = SelectPrimitive.Group
+
+const SelectValue = SelectPrimitive.Value
+
+const SelectTrigger = React.forwardRef<
+  React.ElementRef<typeof SelectPrimitive.Trigger>,
+  React.ComponentPropsWithoutRef<typeof SelectPrimitive.Trigger>
+>(({ className, children, ...props }, ref) => (
+  <SelectPrimitive.Trigger
+    ref={ref}
+    className={cn(
+      "flex h-9 w-full items-center justify-between whitespace-nowrap rounded-md border border-neutral-200 bg-transparent px-3 py-2 text-sm shadow-sm ring-offset-white placeholder:text-neutral-500 focus:outline-none focus:ring-1 focus:ring-neutral-950 disabled:cursor-not-allowed disabled:opacity-50 [&>span]:line-clamp-1 dark:border-neutral-800 dark:ring-offset-neutral-950 dark:placeholder:text-neutral-400 dark:focus:ring-neutral-300",
+      className
+    )}
+    {...props}
+  >
+    {children}
+    <SelectPrimitive.Icon asChild>
+      <ChevronDown className="h-4 w-4 opacity-50" />
+    </SelectPrimitive.Icon>
+  </SelectPrimitive.Trigger>
+))
+SelectTrigger.displayName = SelectPrimitive.Trigger.displayName
+
+const SelectScrollUpButton = React.forwardRef<
+  React.ElementRef<typeof SelectPrimitive.ScrollUpButton>,
+  React.ComponentPropsWithoutRef<typeof SelectPrimitive.ScrollUpButton>
+>(({ className, ...props }, ref) => (
+  <SelectPrimitive.ScrollUpButton
+    ref={ref}
+    className={cn(
+      "flex cursor-default items-center justify-center py-1",
+      className
+    )}
+    {...props}
+  >
+    <ChevronUp className="h-4 w-4" />
+  </SelectPrimitive.ScrollUpButton>
+))
+SelectScrollUpButton.displayName = SelectPrimitive.ScrollUpButton.displayName
+
+const SelectScrollDownButton = React.forwardRef<
+  React.ElementRef<typeof SelectPrimitive.ScrollDownButton>,
+  React.ComponentPropsWithoutRef<typeof SelectPrimitive.ScrollDownButton>
+>(({ className, ...props }, ref) => (
+  <SelectPrimitive.ScrollDownButton
+    ref={ref}
+    className={cn(
+      "flex cursor-default items-center justify-center py-1",
+      className
+    )}
+    {...props}
+  >
+    <ChevronDown className="h-4 w-4" />
+  </SelectPrimitive.ScrollDownButton>
+))
+SelectScrollDownButton.displayName =
+  SelectPrimitive.ScrollDownButton.displayName
+
+const SelectContent = React.forwardRef<
+  React.ElementRef<typeof SelectPrimitive.Content>,
+  React.ComponentPropsWithoutRef<typeof SelectPrimitive.Content>
+>(({ className, children, position = "popper", ...props }, ref) => (
+  <SelectPrimitive.Portal>
+    <SelectPrimitive.Content
+      ref={ref}
+      className={cn(
+        "relative z-50 max-h-96 min-w-[8rem] overflow-hidden rounded-md border border-neutral-200 bg-white text-neutral-950 shadow-md data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 dark:border-neutral-800 dark:bg-neutral-950 dark:text-neutral-50",
+        position === "popper" &&
+          "data-[side=bottom]:translate-y-1 data-[side=left]:-translate-x-1 data-[side=right]:translate-x-1 data-[side=top]:-translate-y-1",
+        className
+      )}
+      position={position}
+      {...props}
+    >
+      <SelectScrollUpButton />
+      <SelectPrimitive.Viewport
+        className={cn(
+          "p-1",
+          position === "popper" &&
+            "h-[var(--radix-select-trigger-height)] w-full min-w-[var(--radix-select-trigger-width)]"
+        )}
+      >
+        {children}
+      </SelectPrimitive.Viewport>
+      <SelectScrollDownButton />
+    </SelectPrimitive.Content>
+  </SelectPrimitive.Portal>
+))
+SelectContent.displayName = SelectPrimitive.Content.displayName
+
+const SelectLabel = React.forwardRef<
+  React.ElementRef<typeof SelectPrimitive.Label>,
+  React.ComponentPropsWithoutRef<typeof SelectPrimitive.Label>
+>(({ className, ...props }, ref) => (
+  <SelectPrimitive.Label
+    ref={ref}
+    className={cn("px-2 py-1.5 text-sm font-semibold", className)}
+    {...props}
+  />
+))
+SelectLabel.displayName = SelectPrimitive.Label.displayName
+
+const SelectItem = React.forwardRef<
+  React.ElementRef<typeof SelectPrimitive.Item>,
+  React.ComponentPropsWithoutRef<typeof SelectPrimitive.Item>
+>(({ className, children, ...props }, ref) => (
+  <SelectPrimitive.Item
+    ref={ref}
+    className={cn(
+      "relative flex w-full cursor-default select-none items-center rounded-sm py-1.5 pl-2 pr-8 text-sm outline-none focus:bg-neutral-100 focus:text-neutral-900 data-[disabled]:pointer-events-none data-[disabled]:opacity-50 dark:focus:bg-neutral-800 dark:focus:text-neutral-50",
+      className
+    )}
+    {...props}
+  >
+    <span className="absolute right-2 flex h-3.5 w-3.5 items-center justify-center">
+      <SelectPrimitive.ItemIndicator>
+        <Check className="h-4 w-4" />
+      </SelectPrimitive.ItemIndicator>
+    </span>
+    <SelectPrimitive.ItemText>{children}</SelectPrimitive.ItemText>
+  </SelectPrimitive.Item>
+))
+SelectItem.displayName = SelectPrimitive.Item.displayName
+
+const SelectSeparator = React.forwardRef<
+  React.ElementRef<typeof SelectPrimitive.Separator>,
+  React.ComponentPropsWithoutRef<typeof SelectPrimitive.Separator>
+>(({ className, ...props }, ref) => (
+  <SelectPrimitive.Separator
+    ref={ref}
+    className={cn("-mx-1 my-1 h-px bg-neutral-100 dark:bg-neutral-800", className)}
+    {...props}
+  />
+))
+SelectSeparator.displayName = SelectPrimitive.Separator.displayName
+
+export {
+  Select,
+  SelectGroup,
+  SelectValue,
+  SelectTrigger,
+  SelectContent,
+  SelectLabel,
+  SelectItem,
+  SelectSeparator,
+  SelectScrollUpButton,
+  SelectScrollDownButton,
+}
+
+
+// lib/utils.ts
+import { clsx, type ClassValue } from "clsx"
+import { twMerge } from "tailwind-merge"
+
+export function cn(...inputs: ClassValue[]) {
+  return twMerge(clsx(inputs))
+}
