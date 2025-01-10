@@ -1,10 +1,9 @@
 // src/app/layout.tsx
 import './globals.css';
-import { ReactNode } from 'react';
 
 export const metadata = {
-  title: 'My App',
-  description: 'My App Description',
+  title: 'Riyadh Mother of all Maps',
+  description: 'This is the mother of all maps for Riyadh',
 };
 
 export default function RootLayout({

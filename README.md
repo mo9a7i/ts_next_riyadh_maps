@@ -1,36 +1,92 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Riyadh Metro Map
 
-## Getting Started
+An interactive web map showing Riyadh's metro system and city districts using React, Next.js, and Leaflet.
 
-First, run the development server:
+## Features
+
+- Interactive map layers:
+  - City Districts with dynamic colors
+  - Metro Lines with color-coded routes
+  - Metro Stations with line-based coloring
+- Layer controls:
+  - Toggle individual layers
+  - Toggle specific metro lines
+  - Indeterminate state for partial line selection
+- District features:
+  - Unique color per district (hash-based)
+  - Hover effects with increased opacity
+  - Popup with district names
+
+## Technical Stack
+
+- Next.js
+- React
+- Leaflet
+- TypeScript
+- @tmcw/togeojson for KML parsing
+
+## Project Structure
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+src/
+├── components/
+│   └── RiyadhMap.tsx    # Main map component
+├── config/
+│   └── mapLayers.ts     # Map layer configurations
+├── types/
+│   └── map.ts          # TypeScript interfaces
+└── app/
+    └── page.tsx        # Next.js page component
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Data Sources
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+- KML files from ArcGIS exports:
+  - City districts
+  - Metro lines
+  - Metro stations
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Setup
 
-## Learn More
+```bash
+# Install dependencies
+pnpm install
 
-To learn more about Next.js, take a look at the following resources:
+# Run development server
+pnpm dev
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Configuration
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Map layers and styles can be configured in `src/config/mapLayers.ts`:
 
-## Deploy on Vercel
+```typescript
+export const kmlFiles: MapLayer[] = [
+  {
+    url: "...",
+    name: "City Districts",
+    // ...configuration
+  }
+];
+```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+Metro line colors and names are defined in `initialMetroLines`.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Deployment
+
+The project is automatically deployed to GitHub Pages using GitHub Actions. The deployment workflow:
+
+1. Triggers on push to main branch
+2. Builds the project using Next.js static export
+3. Deploys to GitHub Pages
+
+To deploy manually:
+
+```bash
+# Build for production
+pnpm build
+
+# The static files will be in the 'out' directory
+```
+
+View the live deployment at: https://[your-username].github.io/riyadh-metro-map
