@@ -14,28 +14,7 @@ interface LayerControlsProps {
 }
 
 export const LayerControls: React.FC<LayerControlsProps> = ({ mapLayers, visibleLayers, mapInstance, setMapLayers, setVisibleLayers, addKMLToMap, showAllStationLabels, setShowAllStationLabels }) => {
-    const handleStationLabelsToggle = (checked: boolean) => {
-        // First update the state
-        setShowAllStationLabels(checked);
-        
-        // Then immediately refresh the layer
-        if (mapInstance) {
-            const stationsLayer = mapLayers.find(l => l.name === "Metro Stations");
-            if (stationsLayer && stationsLayer.layer) {
-                // Remove existing layer
-                mapInstance.removeLayer(stationsLayer.layer);
-                
-                // Create new layer
-                addKMLToMap(mapInstance, stationsLayer, (newLayer) => {
-                    setMapLayers(prev => prev.map(l => 
-                        l.name === "Metro Stations" ? { ...l, layer: newLayer } : l
-                    ));
-                    mapInstance.addLayer(newLayer);
-                });
-            }
-        }
-    };
-
+  
     return (
         <div
             style={{
@@ -51,7 +30,7 @@ export const LayerControls: React.FC<LayerControlsProps> = ({ mapLayers, visible
             }}
         >
             <div style={{ fontWeight: "bold", marginBottom: "8px" }}>Map Layers</div>
-            {mapLayers.map((file, index) => (
+            {mapLayers.map((file) => (
                 <div
                     key={file.name}
                     style={{

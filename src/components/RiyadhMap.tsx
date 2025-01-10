@@ -104,6 +104,7 @@ const RiyadhMap = () => {
                 });
             }
         }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [showAllStationLabels, mapInstance, visibleLayers]);
 
     return (
