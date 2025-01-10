@@ -10,7 +10,8 @@ export interface MapLayer {
         fillOpacity?: number;
         radius: number;
     };
-    type: "district" | "metro" | "busStop";
+    type: "district" | "metro" | "busStop" | "stadium";
+    icon?: L.Icon;
 }
 
 export interface MetroLine {
