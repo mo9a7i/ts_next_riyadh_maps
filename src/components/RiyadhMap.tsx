@@ -14,8 +14,6 @@ import { LayerControls } from "./LayerControls";
 const staticMapLayers = kmlFiles;
 
 // Add Mapbox access token
-const MAPBOX_ACCESS_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN;
-const MAPBOX_STYLE_URL = "mapbox://styles/foursquare/ck7qbe9t20y6v1iqkyeolw8hk";
 
 const RiyadhMap = () => {
     const [mapLayers, setMapLayers] = useState<MapLayer[]>(staticMapLayers);
@@ -116,7 +114,7 @@ const RiyadhMap = () => {
             <LayerControls mapLayers={mapLayers} visibleLayers={visibleLayers} mapInstance={mapInstance} setMapLayers={setMapLayers} setVisibleLayers={setVisibleLayers} addKMLToMap={addKMLToMap} showAllStationLabels={showAllStationLabels} setShowAllStationLabels={setShowAllStationLabels} />
             <MapContainer center={[24.7136, 46.6753]} zoom={12} style={{ height: "100vh", width: "100vw" }}>
                 <TileLayer
-                    url={`https://api.mapbox.com/styles/v1/foursquare/ck7qbe9t20y6v1iqkyeolw8hk/tiles/256/{z}/{x}/{y}@2x?access_token=${MAPBOX_ACCESS_TOKEN}`}
+                    url={`https://api.mapbox.com/styles/v1/foursquare/ck7qbe9t20y6v1iqkyeolw8hk/tiles/256/{z}/{x}/{y}@2x?access_token=pk.eyJ1IjoiZm91cnNxdWFyZSIsImEiOiJjRGRqOVZZIn0.rMLhJeqI_4VnU2YdIJvD3Q`}
                     attribution='© <a href="https://www.mapbox.com/about/maps/">Mapbox</a>'
                     tileSize={512}
                     zoomOffset={-1}
