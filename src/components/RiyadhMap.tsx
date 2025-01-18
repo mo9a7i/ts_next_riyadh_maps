@@ -6,9 +6,7 @@ import { kml } from "@tmcw/togeojson";
 import { MapLayer } from "../types/map";
 import { kmlFiles } from "../config/mapLayers";
 import { createDistrictLayer, bindDistrictPopup, addDistrictHoverEffects } from "../layers/DistrictLayer";
-import { createMetroLineStyle, bindMetroPopup } from "../layers/MetroLayer";
-import { createStationMarker } from "../layers/StationLayer";
-import { LayerControls } from "./LayerControls";
+import { MapControls } from './MapControls';
 
 // Outside component
 const staticMapLayers = kmlFiles;
@@ -19,7 +17,6 @@ const RiyadhMap = () => {
     const [mapLayers, setMapLayers] = useState<MapLayer[]>(staticMapLayers);
     const [mapInstance, setMapInstance] = useState<L.Map | null>(null);
     const [visibleLayers, setVisibleLayers] = useState<{ [key: string]: boolean }>(kmlFiles.reduce((acc, file) => ({ ...acc, [file.name]: false }), {}));
-    const [showAllStationLabels, setShowAllStationLabels] = useState(false);
 
     const addKMLToMap = useCallback((map: L.Map, mapLayer: MapLayer, setLayer: (layer: L.Layer) => void) => {
         fetch(mapLayer.url)
@@ -34,19 +31,37 @@ const RiyadhMap = () => {
                         if (!feature) return mapLayer.style;
 
                         if (mapLayer.type === "district") {
-                            return createDistrictLayer(feature, mapLayer);
+                            return {
+                                ...createDistrictLayer(feature, mapLayer),
+                                zIndex: 100  // Lowest layer
+                            };
                         }
-                        if (mapLayer.type === "metro") {
-                            return createMetroLineStyle(feature, mapLayer);
-                        }
-                        return mapLayer.style;
+                        return {
+                            ...mapLayer.style,
+                            zIndex: mapLayer.type === "stadium" ? 300 : 200  // Stadiums highest, others middle
+                        };
                     },
                     pointToLayer: (feature, latlng) => {
-                        if (mapLayer.name === "Metro Stations") {
-                            return createStationMarker(feature, latlng, mapLayer);
-                        }
                         if (mapLayer.type === "stadium" && mapLayer.icon) {
-                            return L.marker(latlng, { icon: mapLayer.icon });
+                            const marker = L.marker(latlng, { icon: mapLayer.icon });
+                            marker.setZIndexOffset(300);
+                            
+                            // Add stadium popup
+                            if (feature.properties?.name) {
+                                const popupContent = `
+                                    <div style="text-align: center; min-width: 150px; padding: 8px;">
+                                        <div style="font-weight: bold; margin-bottom: 4px;">
+                                            ${feature.properties.name}
+                                        </div>
+                                        <div style="color: #666; font-size: 13px;">
+                                            ${feature.properties.description || ''}
+                                        </div>
+                                    </div>
+                                `;
+                                marker.bindPopup(popupContent);
+                            }
+                            
+                            return marker;
                         }
                         return L.circleMarker(latlng, mapLayer.style);
                     },
@@ -54,11 +69,13 @@ const RiyadhMap = () => {
                         if (mapLayer.type === "district") {
                             bindDistrictPopup(feature, layer);
                             addDistrictHoverEffects(feature, layer);
-                        } else if (mapLayer.type === "metro") {
-                            bindMetroPopup(feature, layer, showAllStationLabels);
                         }
                     },
                 });
+
+                // Set the pane for the entire layer
+                kmlLayer.setZIndex(mapLayer.type === "district" ? 100 : 
+                                  mapLayer.type === "stadium" ? 300 : 200);
 
                 setLayer(kmlLayer);
 
@@ -68,7 +85,7 @@ const RiyadhMap = () => {
                 }
             })
             .catch((err) => console.error(`Failed to load KML file: ${mapLayer.name}`, err));
-    }, [showAllStationLabels]);
+    }, []);
 
     const MapContent = () => {
         const map = useMap();
@@ -107,12 +124,19 @@ const RiyadhMap = () => {
             }
         }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [showAllStationLabels, mapInstance, visibleLayers]);
+    }, [mapInstance, visibleLayers]);
 
     return (
         <div style={{ position: "relative" }}>
-            <LayerControls mapLayers={mapLayers} visibleLayers={visibleLayers} mapInstance={mapInstance} setMapLayers={setMapLayers} setVisibleLayers={setVisibleLayers} addKMLToMap={addKMLToMap} showAllStationLabels={showAllStationLabels} setShowAllStationLabels={setShowAllStationLabels} />
-            <MapContainer center={[24.7136, 46.6753]} zoom={12} style={{ height: "100vh", width: "100vw" }}>
+            <MapControls 
+                mapLayers={mapLayers} 
+                visibleLayers={visibleLayers} 
+                mapInstance={mapInstance} 
+                setMapLayers={setMapLayers} 
+                setVisibleLayers={setVisibleLayers} 
+                addKMLToMap={addKMLToMap}
+            />
+            <MapContainer center={[24.7136, 46.6753]} zoom={11} style={{ height: "100vh", width: "100vw" }}>
                 <TileLayer
                     url={`https://api.mapbox.com/styles/v1/foursquare/ck7qbe9t20y6v1iqkyeolw8hk/tiles/256/{z}/{x}/{y}@2x?access_token=pk.eyJ1IjoiZm91cnNxdWFyZSIsImEiOiJjRGRqOVZZIn0.rMLhJeqI_4VnU2YdIJvD3Q`}
                     attribution='© <a href="https://www.mapbox.com/about/maps/">Mapbox</a>'

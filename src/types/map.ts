@@ -10,13 +10,6 @@ export interface MapLayer {
         fillOpacity?: number;
         radius: number;
     };
-    type: "district" | "metro" | "busStop" | "stadium";
+    type: "district" | "stadium";
     icon?: L.Icon;
-}
-
-export interface MetroLine {
-    id: string;
-    name: string;
-    color: string;
-    visible: boolean;
 } 
