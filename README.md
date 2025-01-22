@@ -45,6 +45,7 @@ src/
   - City districts
   - Metro lines
   - Metro stations
+- OpenStreetMap data for base map tiles
 
 ## Setup
 
@@ -71,6 +72,11 @@ export const kmlFiles: MapLayer[] = [
 ```
 
 Metro line colors and names are defined in `initialMetroLines`.
+
+## Credits
+
+Map data © [OpenStreetMap](https://www.openstreetmap.org/) contributors
+Licensed under [ODbL](https://opendatacommons.org/licenses/odbl/)
 
 ## Deployment
 
